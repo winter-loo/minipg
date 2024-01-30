@@ -38,19 +38,93 @@ impl Node {
 mod tests {
     use super::*;
 
+    // see page 9 of https://infolab.usc.edu/csci585/Spring2010/den_ar/indexing.pdf
+    fn build_tree() -> Node {
+        let mut root = Node::new();
+        root.is_leaf = false;
+        root.keys[0] = 11;
+        root.n += 1;
+
+        let mut leaf1 = Node::new();
+        leaf1.is_leaf = true;
+        leaf1.keys[0] = 1;
+        leaf1.keys[1] = 2;
+        leaf1.keys[2] = 3;
+        leaf1.keys[3] = 4;
+        leaf1.n = 4;
+
+        let mut leaf2 = Node::new();
+        leaf2.is_leaf = true;
+        leaf2.keys[0] = 6;
+        leaf2.keys[1] = 7;
+        leaf2.n = 2;
+
+        let mut leaf3 = Node::new();
+        leaf3.is_leaf = true;
+        leaf3.keys[0] = 9;
+        leaf3.keys[1] = 10;
+        leaf3.n = 2;
+
+        let mut leaf4 = Node::new();
+        leaf4.is_leaf = true;
+        leaf4.keys[0] = 12;
+        leaf4.keys[1] = 13;
+        leaf4.keys[2] = 14;
+        leaf4.keys[3] = 15;
+        leaf4.n = 4;
+
+        let mut leaf5 = Node::new();
+        leaf5.is_leaf = true;
+        leaf5.keys[0] = 17;
+        leaf5.keys[1] = 18;
+        leaf5.keys[2] = 19;
+        leaf5.keys[3] = 20;
+        leaf5.n = 4;
+
+        let mut leaf6 = Node::new();
+        leaf6.is_leaf = true;
+        leaf6.keys[0] = 22;
+        leaf6.keys[1] = 23;
+        leaf6.keys[2] = 24;
+        leaf6.keys[3] = 25;
+        leaf6.n = 4;
+
+        let mut inode1 = Node::new();
+        inode1.is_leaf = false;
+        inode1.keys[0] = 5;
+        inode1.keys[1] = 8;
+        inode1.n = 2;
+
+        let mut inode2 = Node::new();
+        inode2.is_leaf = false;
+        inode2.keys[0] = 16;
+        inode2.keys[1] = 21;
+        inode2.n = 2;
+
+        inode1.children[0] = Some(Box::new(leaf1));
+        inode1.children[1] = Some(Box::new(leaf2));
+        inode1.children[2] = Some(Box::new(leaf3));
+
+        inode2.children[0] = Some(Box::new(leaf4));
+        inode2.children[1] = Some(Box::new(leaf5));
+        inode2.children[2] = Some(Box::new(leaf6));
+
+        root.children[0] = Some(Box::new(inode1));
+        root.children[1] = Some(Box::new(inode2));
+
+        root
+    }
+
     #[test]
     fn test_find() {
-        let mut root = Node::new();
-        root.is_leaf = true;
-        root.keys[0] = 10;
-        root.n += 1;
-        assert!(root.find(20).is_none());
+        let root = build_tree();
 
-        root.keys[1] = 20;
-        root.n += 1;
         let it = root.find(20);
         assert!(it.is_some());
-        assert_eq!(it.unwrap().keys[1], 20); 
+        assert_eq!(it.unwrap().keys[3], 20);
+
+        let it = root.find(100);
+        assert!(it.is_none());
     }
 }
 
