@@ -19,6 +19,71 @@ impl Node {
         }
     }
 
+    fn node_is_full(&self) -> bool {
+        self.n == MAX_CHILDREN - 1
+    }
+
+    fn node_find_pos(&self, key: usize) -> usize {
+        let mut i = 0;
+        while i < self.n && key > self.keys[i] {
+            i += 1;
+        }
+        i
+    }
+
+    fn insert(&mut self, key: usize) {
+        self.insert_leaf(self, key);
+    }
+
+    fn split_node(node: Node) {}
+
+    fn insert_internal(&mut self, n: Node) {
+        if self.node_is_full() {
+            split_node(n);
+        } else {
+            self.keys[i] = key;
+            self.n += 1;
+        }
+    }
+
+    fn insert_leaf(&mut self, key: usize) -> Option<Node> {
+        let i = self.node_find_pos(key);
+        if self.children[i].is_some() {
+            let res = self.insert_leaf(&mut self.children[i].unwrap().deref(), key);
+            match res {
+                Some(n) => insert_internal(n),
+                None => return None,
+            }
+        } else {
+            if self.node_is_full() {
+                let &mut parent = Node::new();
+                parent.is_leaf = false;
+                parent.n = 1;
+                parent.keys[0] = self.keys[self.n / 2];
+                let &mut child1 = Node::new();
+                child1.is_leaf = true;
+                child1.n = self.n / 2;
+                for i in 0..child1.n {
+                    child1.keys[i] = self.keys[i];
+                }
+                let &mut child2 = Noew::new();
+                child2.is_leaf = true;
+                child2.n = self.n / 2;
+                for i in 0..child2.n {
+                    child2.keys[i] = self.keys[1 + i + self.n / 2];
+                }
+                parent.children[0] = Some(Box::new(child1));
+                parent.children[1] = Some(Box::new(child2));
+
+                return Some(parent);
+            } else {
+                self.keys[i] = key;
+                self.n += 1;
+                return None;
+            }
+        }
+    }
+
     fn find(&self, key: usize) -> Option<&Node> {
         let mut i = 0;
         while i < self.n && key > self.keys[i] {
