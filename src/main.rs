@@ -31,57 +31,85 @@ impl Node {
         i
     }
 
+    // insert a key to the tree:
+    // 1. if node is leaf
+    //   1.1 if the leaf is full, split the leaf
+    //     1.1.1 insert the key to the new parent
+    //     1.1.2 return the new parent
+    //   1.2 if the leaf is not full, insert the key (basic case)
+    // 2. if node is internal
+    //   2.1 insert the key to the child(recursive case)(go down)
+    //   2.2 if have a new parent, then
+    //     2.2.1 if the current node is full, split the node and return the new parent(go up)
+    //     2.2.2 if the current node is not full, insert the new parent to the current node(DONE)
+    //   2.3 if have no new parent, return None(DONE)
+    //
+    // split the node(left child):
+    // 1. crete two new nodes, one for parent, one for right child
+    // 2. copy the right half of the keys to the right child
+    // 3. copy the right half of the children to the right child
+    // 4. set the parent's first key to the middle key
+    // 5. set the parent's first child to the left child
+    // 6. set the parent's second child to the right child
+    // 7. return the parent
     fn insert(&mut self, key: usize) {
-        self.insert_leaf(self, key);
+        self.insert_down_to_leaf(key);
     }
 
-    fn split_node(node: Node) {}
-
-    fn insert_internal(&mut self, n: Node) {
-        if self.node_is_full() {
-            split_node(n);
-        } else {
+    fn insert_down_to_leaf(&mut self, key: usize) -> Option<Node> {
+        if self.is_leaf {
+            if self.node_is_full() {
+                let &mut new_parent = self.split_node();
+                new_parent.insert(key);
+                return Some(new_parent);
+            }
+            // Else not full, insert directly
+            let i = self.node_find_pos(key);
             self.keys[i] = key;
             self.n += 1;
+            return None;
+        }
+        // Else an internal node
+        match self.insert_down_to_leaf(key) {
+            Some(node) => {
+                if self.node_is_full() {
+                    let new_parent = self.split_node();
+                    // insert the node
+                    return Some(new_parent);
+                } else {
+                    let key = node.keys[0];
+                    let i = node.node_find_pos(key);
+                    let mut k = i;
+                    while k < self.n {
+                        self.keys[k + 1] = self.keys[k];
+                        self.children[k + 1] = self.children[k];
+                        k += 1;
+                    }
+                    self.keys[i] = key;
+                    self.children[i] = Some(node);
+                    return None;
+                }
+            }
+            None => return None,
         }
     }
 
-    fn insert_leaf(&mut self, key: usize) -> Option<Node> {
-        let i = self.node_find_pos(key);
-        if self.children[i].is_some() {
-            let res = self.insert_leaf(&mut self.children[i].unwrap().deref(), key);
-            match res {
-                Some(n) => insert_internal(n),
-                None => return None,
-            }
-        } else {
-            if self.node_is_full() {
-                let &mut parent = Node::new();
-                parent.is_leaf = false;
-                parent.n = 1;
-                parent.keys[0] = self.keys[self.n / 2];
-                let &mut child1 = Node::new();
-                child1.is_leaf = true;
-                child1.n = self.n / 2;
-                for i in 0..child1.n {
-                    child1.keys[i] = self.keys[i];
-                }
-                let &mut child2 = Noew::new();
-                child2.is_leaf = true;
-                child2.n = self.n / 2;
-                for i in 0..child2.n {
-                    child2.keys[i] = self.keys[1 + i + self.n / 2];
-                }
-                parent.children[0] = Some(Box::new(child1));
-                parent.children[1] = Some(Box::new(child2));
+    fn split_node(&mut self) -> Option<Node> {
+        let mut new_parent = Node::new();
+        let mut right_child = Node::new();
 
-                return Some(parent);
-            } else {
-                self.keys[i] = key;
-                self.n += 1;
-                return None;
-            }
+        new_parent.keys[0] = self.keys[self.n / 2];
+        new_parent.n = 1;
+        new_parent.children[0] = self;
+        new_parent.children[1] = right_child;
+
+        for i in 0..(self.n / 2) {
+            right_child.keys[i] = self.keys[self.n / 2 + 1 + i];
+            right_child.children[i] = self.children[self.n / 2 + 1 + i];
         }
+        right_child.n = self.n / 2;
+
+        Some(new_parent)
     }
 
     fn find(&self, key: usize) -> Option<&Node> {
