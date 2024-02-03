@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+
+use std::fmt::Display;
+
 const MAX_CHILDREN: usize = 5;
 const INIT: Option<Box<Node>> = None;
 
@@ -9,26 +13,33 @@ struct Node {
     is_leaf: bool,
 }
 
+struct NodeFormatConfig<'a> {
+    level: usize,
+    right_most_node: &'a Node,
+    first_child_found: bool,
+}
+
 impl Node {
-    fn new() -> Node {
-        Node {
+    fn new() -> Self {
+        Self {
             n: 0,
             keys: [0; MAX_CHILDREN - 1],
             children: [INIT; MAX_CHILDREN],
-            is_leaf: false,
+            is_leaf: true,
         }
     }
 
-    fn node_is_full(&self) -> bool {
+    fn new_boxed() -> Box<Self> {
+        Box::new(Self {
+            n: 0,
+            keys: [0; MAX_CHILDREN - 1],
+            children: [INIT; MAX_CHILDREN],
+            is_leaf: true,
+        })
+    }
+
+    fn is_node_full(&self) -> bool {
         self.n == MAX_CHILDREN - 1
-    }
-
-    fn node_find_pos(&self, key: usize) -> usize {
-        let mut i = 0;
-        while i < self.n && key > self.keys[i] {
-            i += 1;
-        }
-        i
     }
 
     // insert a key to the tree:
@@ -52,64 +63,145 @@ impl Node {
     // 5. set the parent's first child to the left child
     // 6. set the parent's second child to the right child
     // 7. return the parent
-    fn insert(&mut self, key: usize) {
-        self.insert_down_to_leaf(key);
+    #[must_use]
+    fn insert(&mut self, key: usize) -> Box<Node> {
+        let n = match self.insert_down_to_leaf(key) {
+            Some(nn) => nn,
+            None => Box::new(std::mem::replace(self, Node::new())),
+        };
+        #[cfg(feature="debug2")]
+        println!("insert DONE\n{}", n);
+        n
     }
 
-    fn insert_down_to_leaf(&mut self, key: usize) -> Option<Node> {
+    #[must_use]
+    fn insert_down_to_leaf(&mut self, key: usize) -> Option<Box<Node>> {
         if self.is_leaf {
-            if self.node_is_full() {
-                let &mut new_parent = self.split_node();
-                new_parent.insert(key);
+            if self.is_node_full() {
+                let mut new_parent = self.split_node();
+                new_parent = new_parent.insert(key);
+                #[cfg(feature="debug2")]
+                println!("new_parent:\n{}", new_parent);
                 return Some(new_parent);
             }
             // Else not full, insert directly
-            let i = self.node_find_pos(key);
+            let i = self.find_pos(key);
+            if i < self.n {
+                let mut k = self.n;
+                while k > i {
+                    self.keys[k] = self.keys[k - 1];
+                    k -= 1;
+                }
+            }
             self.keys[i] = key;
             self.n += 1;
+            #[cfg(feature="debug2")]
+            println!("leaf inserted\n{}", self);
             return None;
         }
         // Else an internal node
-        match self.insert_down_to_leaf(key) {
-            Some(node) => {
-                if self.node_is_full() {
-                    let new_parent = self.split_node();
-                    // insert the node
-                    return Some(new_parent);
-                } else {
-                    let key = node.keys[0];
-                    let i = node.node_find_pos(key);
-                    let mut k = i;
-                    while k < self.n {
-                        self.keys[k + 1] = self.keys[k];
-                        self.children[k + 1] = self.children[k];
-                        k += 1;
+        let i = self.find_pos(key);
+        let child = self.children[i].as_mut().unwrap();
+        let nn = child.insert_down_to_leaf(key);
+        if let Some(mut nn) = nn {
+            if self.is_node_full() {
+                let mut new_parent = self.split_node();
+                let children = &mut new_parent.children;
+
+                if nn.keys[0] > new_parent.keys[0] {
+                    let rc = children[1].as_mut().unwrap();
+                    let i = rc.find_pos(nn.keys[0]);
+                    let mut k = self.n;
+                    while k > i {
+                        rc.keys[k] = rc.keys[k - 1];
                     }
-                    self.keys[i] = key;
-                    self.children[i] = Some(node);
-                    return None;
+                    k = self.n + 1;
+                    while k > i + 1 {
+                        rc.children[k] = rc.children[k - 1].take();
+                    }
+                    rc.keys[i] = nn.keys[0];
+                    rc.children[i] = nn.children[0].take();
+                    rc.children[i + 1] = nn.children[1].take();
+                    rc.n += 1;
+                } else {
+                    let lc = children[0].as_mut().unwrap();
+                    let i = lc.find_pos(nn.keys[0]);
+                    let mut k = self.n;
+                    while k > i {
+                        lc.keys[k] = lc.keys[k - 1];
+                    }
+                    k = self.n + 1;
+                    while k > i + 1 {
+                        lc.children[k] = lc.children[k - 1].take();
+                    }
+                    lc.keys[i] = nn.keys[0];
+                    lc.children[i] = nn.children[0].take();
+                    lc.children[i + 1] = nn.children[1].take();
+                    lc.n += 1;
                 }
+
+                #[cfg(feature="debug2")]
+                println!("internal(full) inserted\n{}", new_parent);
+                return Some(new_parent);
+            } else {
+                let key = nn.keys[0];
+                let i = self.find_pos(key);
+                let mut k = self.n; // 1
+                while k > i {
+                    self.keys[k] = self.keys[k - 1];
+                    k -= 1;
+                }
+                k = self.n + 1;
+                while k > i + 1 {
+                    self.children[k] = self.children[k - 1].take();
+                    k -= 1;
+                }
+                self.keys[i] = key;
+                self.children[i] = nn.children[0].take();
+                self.children[i + 1] = nn.children[1].take();
+                self.n += 1;
+                #[cfg(feature="debug2")]
+                println!("internal inserted\n{}", self);
+                return None;
             }
-            None => return None,
         }
+        None
     }
 
-    fn split_node(&mut self) -> Option<Node> {
-        let mut new_parent = Node::new();
-        let mut right_child = Node::new();
+    #[must_use]
+    fn split_node(&mut self) -> Box<Node> {
+        let mut new_parent = Node::new_boxed();
+        let mut right_child = Node::new_boxed();
 
+        for i in 0..(self.n / 2 - 1) {
+            right_child.keys[i] = self.keys[self.n / 2 + 1 + i];
+            right_child.children[i] = self.children[self.n / 2 + 1 + i].take();
+        }
+        right_child.n = self.n / 2 - 1;
+        right_child.is_leaf = self.is_leaf;
+
+        new_parent.is_leaf = false;
         new_parent.keys[0] = self.keys[self.n / 2];
         new_parent.n = 1;
-        new_parent.children[0] = self;
-        new_parent.children[1] = right_child;
+        self.n = self.n / 2;
+        // `std::mem::replace` is an VERY IMPORTANT API for this case
+        // Without it, I can not turn `self` to Box<Node>
+        new_parent.children[0] = Some(Box::new(std::mem::replace(self, Node::new())));
+        new_parent.children[1] = Some(right_child);
 
-        for i in 0..(self.n / 2) {
-            right_child.keys[i] = self.keys[self.n / 2 + 1 + i];
-            right_child.children[i] = self.children[self.n / 2 + 1 + i];
+        new_parent
+    }
+
+    fn is_new_node(&self, node: &Node) -> bool {
+        (self as *const Node) != (node as *const Node)
+    }
+
+    fn find_pos(&self, key: usize) -> usize {
+        let mut i = 0;
+        while i < self.n && key > self.keys[i] {
+            i += 1;
         }
-        right_child.n = self.n / 2;
-
-        Some(new_parent)
+        i
     }
 
     fn find(&self, key: usize) -> Option<&Node> {
@@ -125,6 +217,148 @@ impl Node {
         }
         self.children[i].as_ref().unwrap().find(key)
     }
+
+    fn is_balanced(&self) -> bool {
+        if self.is_leaf {
+            return true;
+        } else {
+            let mut ph = 0;
+            for child in &self.children {
+                match child {
+                    Some(bc) => {
+                        let h = bc.height();
+                        if ph == 0 {
+                            ph = h;
+                        }
+                        if ph != h {
+                            return false;
+                        }
+                    }
+                    None => break,
+                }
+            }
+        }
+        true
+    }
+
+    fn height(&self) -> usize {
+        if self.is_leaf {
+            return 1;
+        } else {
+            let mut mh = 1;
+            for child in &self.children {
+                match child {
+                    Some(bc) => {
+                        mh = std::cmp::max(mh, bc.height());
+                    }
+                    None => break,
+                }
+            }
+            return mh + 1;
+        }
+    }
+
+    fn have_child(&self) -> bool {
+        for child in &self.children {
+            match child {
+                Some(_) => return true,
+                None => break,
+            }
+        }
+        false
+    }
+
+    // see `build_tree`
+    fn fmt_internal(
+        &self,
+        cfg: &mut NodeFormatConfig,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        if !self.have_child() {
+            if !cfg.first_child_found {
+                cfg.first_child_found = true;
+                writeln!(f)?;
+            }
+            for _ in 0..cfg.level {
+                write!(f, " ")?;
+            }
+            write!(f, "[")?;
+            for i in 0..self.n {
+                write!(f, "{}", self.keys[i])?;
+                if i < self.n - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+            return writeln!(f, "],");
+        }
+
+        if !cfg.first_child_found {
+            write!(f, "{{")?;
+        } else {
+            for _ in 0..cfg.level {
+                write!(f, " ")?;
+            }
+            writeln!(f, "{{")?;
+        }
+
+        for i in 0..self.n {
+            match self.children[i].as_ref() {
+                Some(bc) => {
+                    cfg.level += 1;
+                    bc.fmt_internal(cfg, f)?;
+                    cfg.level -= 1;
+                }
+                None => (),
+            }
+            for _ in 0..cfg.level {
+                write!(f, " ")?;
+            }
+            writeln!(f, "{},", self.keys[i])?;
+        }
+        match self.children[self.n].as_ref() {
+            Some(bc) => {
+                cfg.level += 1;
+                bc.fmt_internal(cfg, f)?;
+                cfg.level -= 1;
+                for _ in 0..cfg.level {
+                    write!(f, " ")?;
+                }
+                if bc.as_ref() as *const Node == cfg.right_most_node as *const Node {
+                    write!(f, "}}")?;
+                } else if cfg.level == 0 {
+                    write!(f, "}}")?;
+                } else {
+                    writeln!(f, "}},")?;
+                }
+            }
+            None => (),
+        }
+        Ok(())
+    }
+
+    fn get_rightmost_node(&self) -> &Node {
+        if self.is_leaf {
+            return self;
+        }
+        for child in self.children.iter().rev() {
+            match child {
+                Some(bc) => return bc.get_rightmost_node(),
+                None => continue,
+            }
+        }
+        unreachable!()
+    }
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut config = NodeFormatConfig {
+            level: 0,
+            right_most_node: self.get_rightmost_node(),
+            first_child_found: false,
+        };
+        self.fmt_internal(&mut config, f)
+    }
 }
 
 #[cfg(test)]
@@ -132,6 +366,22 @@ mod tests {
     use super::*;
 
     // see page 9 of https://infolab.usc.edu/csci585/Spring2010/den_ar/indexing.pdf
+    // output format:
+    //   {{
+    //     [1, 2, 3, 4],
+    //    5,
+    //     [6, 7],
+    //    8,
+    //     [9, 10],
+    //    },
+    //   11,
+    //    {
+    //     [12, 13, 14, 15],
+    //    16,
+    //     [17, 18, 19, 20],
+    //    21,
+    //     [22, 23, 24, 25],
+    //    }}
     fn build_tree() -> Node {
         let mut root = Node::new();
         root.is_leaf = false;
@@ -218,6 +468,107 @@ mod tests {
 
         let it = root.find(100);
         assert!(it.is_none());
+    }
+
+    #[test]
+    fn test_insert1() {
+        let mut root = Node::new_boxed();
+        root = root.insert(5);
+        root = root.insert(8);
+        root = root.insert(11);
+        root = root.insert(16);
+        assert_eq!(root.height(), 1);
+        root = root.insert(21);
+        assert_eq!(root.height(), 2);
+        assert!(root.is_balanced());
+        root = root.insert(1);
+        root = root.insert(2);
+        root = root.insert(6);
+        root = root.insert(7);
+        root = root.insert(9);
+        root = root.insert(10);
+        root = root.insert(12);
+        root = root.insert(13);
+        root = root.insert(17);
+        root = root.insert(18);
+        root = root.insert(22);
+        root = root.insert(23);
+        root = root.insert(3);
+        root = root.insert(4);
+        root = root.insert(14);
+        root = root.insert(15);
+        root = root.insert(19);
+        root = root.insert(20);
+        root = root.insert(24);
+        root = root.insert(25);
+        assert_eq!(root.height(), 3);
+        assert!(root.is_balanced());
+    }
+
+    #[test]
+    fn test_insert2() {
+        let mut root = Node::new_boxed();
+        root = root.insert(1);
+        root = root.insert(2);
+        root = root.insert(3);
+        root = root.insert(4);
+        root = root.insert(5);
+        root = root.insert(6);
+        root = root.insert(7);
+        root = root.insert(8);
+        root = root.insert(9);
+        root = root.insert(10);
+        root = root.insert(11);
+        root = root.insert(12);
+        root = root.insert(13);
+        root = root.insert(14);
+        root = root.insert(15);
+        root = root.insert(16);
+        root = root.insert(17);
+        assert_eq!(root.height(), 3);
+        assert!(root.is_balanced());
+        let ans = format!("{}", root);
+        let exp = r#"
+{{
+  [1, 2],
+ 3,
+  [4, 5],
+ 6,
+  [7, 8],
+ },
+9,
+ {
+  [10, 11],
+ 12,
+  [13, 14],
+ 15,
+  [16, 17],
+ }}
+"#;
+        assert_eq!(ans, exp.trim());
+    }
+
+    #[test]
+    fn test_format() {
+        let root = build_tree();
+        let ans = format!("{}", root);
+        let exp = r#"
+{{
+  [1, 2, 3, 4],
+ 5,
+  [6, 7],
+ 8,
+  [9, 10],
+ },
+11,
+ {
+  [12, 13, 14, 15],
+ 16,
+  [17, 18, 19, 20],
+ 21,
+  [22, 23, 24, 25],
+ }}"#;
+        assert_eq!(ans, exp.trim_start());
     }
 }
 
