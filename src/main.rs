@@ -43,26 +43,26 @@ impl Node {
     }
 
     // insert a key to the tree:
-    // 1. if node is leaf
-    //   1.1 if the leaf is full, split the leaf
-    //     1.1.1 insert the key to the new parent
-    //     1.1.2 return the new parent
-    //   1.2 if the leaf is not full, insert the key (basic case)
-    // 2. if node is internal
-    //   2.1 insert the key to the child(recursive case)(go down)
-    //   2.2 if have a new parent, then
-    //     2.2.1 if the current node is full, split the node and return the new parent(go up)
-    //     2.2.2 if the current node is not full, insert the new parent to the current node(DONE)
-    //   2.3 if have no new parent, return None(DONE)
+    //  if node is leaf
+    //    if the leaf is full, split the leaf
+    //      insert the key to the new parent
+    //      return the new parent
+    //    if the leaf is not full, insert the key (basic case)
+    //  if node is internal
+    //    insert the key to the child(recursive case)(go down)
+    //    if have a new parent, then
+    //      if the current node is full, split the node and return the new parent(go up)
+    //      if the current node is not full, insert the new parent to the current node(DONE)
+    //    if have no new parent, return None(DONE)
     //
     // split the node(left child):
-    // 1. crete two new nodes, one for parent, one for right child
-    // 2. copy the right half of the keys to the right child
-    // 3. copy the right half of the children to the right child
-    // 4. set the parent's first key to the middle key
-    // 5. set the parent's first child to the left child
-    // 6. set the parent's second child to the right child
-    // 7. return the parent
+    //   crete two new nodes, one for parent, one for right child
+    //   copy the right half of the keys to the right child
+    //   copy the right half of the children to the right child
+    //   set the parent's first key to the middle key
+    //   set the parent's first child to the left child
+    //   set the parent's second child to the right child
+    //   return the parent
     #[must_use]
     fn insert(&mut self, key: usize) -> Box<Node> {
         let n = match self.insert_down_to_leaf(key) {
