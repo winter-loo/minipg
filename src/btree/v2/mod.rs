@@ -317,6 +317,10 @@ impl Node {
         }
         unreachable!()
     }
+
+    fn delete(&mut self, key: usize) {
+        unimplemented!()
+    }
 }
 
 impl Display for Node {
@@ -511,4 +515,38 @@ mod tests {
  }}"#;
         assert_eq!(ans, exp.trim_start());
     }
+
+    #[test]
+    fn test_delete_from_leaf() {
+        let mut root = Node::new_boxed();
+        let input = [11, 1, 2, 20, 21, 5, 7, 4, 8];
+        for i in input {
+            root.insert(i);
+        }
+        assert_eq!(root.height(), 2);
+        assert!(root.is_balanced());
+        let ans = format!("{}", root);
+        let exp = r#"
+{
+ [1, 2],
+4,
+ [5, 7, 8],
+11,
+ [20, 21],
 }
+"#;
+        assert_eq!(ans, exp.trim());
+
+        root.delete(8);
+        let ans = format!("{}", root);
+        let exp = r#"
+{
+ [1, 2],
+4,
+ [5, 7],
+11,
+ [20, 21]
+}
+"#;
+        assert_eq!(ans, exp.trim());
+    }
