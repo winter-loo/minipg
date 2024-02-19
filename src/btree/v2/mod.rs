@@ -319,7 +319,29 @@ impl Node {
     }
 
     fn delete(&mut self, key: usize) {
-        unimplemented!()
+        // find the key
+        let mut i = 0;
+        while i < self.n && key >= self.keys[i] {
+            if key == self.keys[i] {
+                if self.is_leaf {
+                    if self.n > MAX_CHILDREN / 2 {
+                        // delete the key directly
+                        for j in i..(self.n - 1) {
+                            self.keys[j] = self.keys[j + 1];
+                        }
+                        self.n -= 1;
+                    } else {
+                        // take a key from the parent
+                        // take the maximum key from the left sibling
+                    }
+                }
+                return;
+            }
+            i += 1;
+        }
+        if let Some(child) = self.children[i].as_mut() {
+            child.delete(key);
+        }
     }
 }
 
