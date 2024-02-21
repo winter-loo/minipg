@@ -623,13 +623,12 @@ int main()
 	t.insert(4);
 	t.insert(8);
 	t.insert(3);
-
 	cout << "Traversal of tree constructed is\n";
 	t.traverse();
 	cout << endl;
 
 	t.remove(1);
-	cout << "Traversal of tree after removing 8\n";
+	cout << "Traversal of tree after removing 1\n";
 	t.traverse();
 	cout << endl;
 
@@ -647,6 +646,5 @@ int main()
 	cout << "Traversal of tree after removing 21\n";
 	t.traverse();
 	cout << endl;
-
 	return 0;
 }
