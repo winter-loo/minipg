@@ -315,26 +315,62 @@ impl Node {
         unreachable!()
     }
 
-    pub fn delete(&mut self, key: usize) {
-        // find the key
-        let i = self.find_pos(key);
-        if i < self.n && key == self.keys[i] {
-            if self.is_leaf {
-                if self.n > MAX_CHILDREN / 2 {
-                    // delete the key directly
-                    for j in i..(self.n - 1) {
-                        self.keys[j] = self.keys[j + 1];
-                    }
-                    self.n -= 1;
-                } else {
-                    // take a key from the parent
-                    // take the maximum key from the left sibling
-                }
-            }
-            return;
+    fn with_minimum_keys(&self) -> bool {
+        self.n == (MAX_CHILDREN - 1) / 2
+    }
+
+    fn less_than_minimum_keys(&self) -> bool {
+        self.n < (MAX_CHILDREN - 1) / 2
+    }
+
+    fn delete_key(&mut self, index: usize) {
+        if !self.is_leaf {
+            self.merge(index);
         }
-        if let Some(child) = self.children[i].as_mut() {
-            child.delete(key);
+        if less_than_minimum_keys() {
+            self.borrow_or_merge(index);
+        }
+    }
+
+    fn merge(&mut self, index: usize) {
+        let left_child = self.children[index].as_mut().unwrap();
+        let right_child = self.children[index + 1].as_mut().unwrap();
+        if left_child.n + right_child.n < MAX_CHILDREN - 1 {
+            let rn = right_child.n;
+            right_child.n += left_child.n;
+            for i in 0..rn {
+                right_child.keys[right_child.n - i] = right_child.keys[right_child.n - i - 1];
+                right_child.children[right_child.n - i] = right_child.children[right_child.n - i - 1].take();
+            }
+            for i in 0..left_child.n {
+                right_child.keys[i] = left_child.keys[i];
+                right_child.children[i] = left_child.children[i].take();
+            }
+            right_child.children[left_child.n] = left_child.children[left_child.n].take();
+            for j in i..self.n {
+                self.keys[j] = self.keys[j + 1];
+            }
+            self.n -= 1;
+        } else {
+            let middle = (left_child.n + right_child.n) / 2;
+            if middle > left_child.n {
+                self.keys[index] = right_child.successor()
+            } else {
+                self.keys[index] = left_child.keys[middle];
+            }
+        }
+    }
+
+    pub fn delete(&mut self, key: usize) {
+        let i = self.find_pos(key);
+        // if the key is found in the current node
+        if i < self.n && key == self.keys[i] {
+            self.delete_key(i);
+        } else {
+            // if the key is not found in the current node
+            if let Some(child) = self.children[i].as_mut() {
+                child.delete(key);
+            }
         }
     }
 }
