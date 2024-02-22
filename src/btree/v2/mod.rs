@@ -315,10 +315,6 @@ impl Node {
         unreachable!()
     }
 
-    fn with_minimum_keys(&self) -> bool {
-        self.n == (MAX_CHILDREN - 1) / 2
-    }
-
     fn fill_child(&mut self, i: usize) {
         if i > 0 {
             if let Some(left) = self.children[i - 1].as_mut() {
@@ -336,16 +332,18 @@ impl Node {
                 }
             }
         }
-        if i < self.n {
+        if i > 0 {
             self.merge(i);
         } else {
-            self.merge(i - 1);
+            self.merge(i + 1);
         }
     }
 
     fn borrow_from_left(&mut self, i: usize) {
-        let child = self.children[i].as_mut().unwrap();
-        let left = self.children[i - 1].as_mut().unwrap();
+        let (left, child) = self.children.split_at_mut(i);
+        let left = left[i - 1].as_mut().unwrap();
+        let child = child[0].as_mut().unwrap();
+
         for j in (1..child.n + 1).rev() {
             child.keys[j] = child.keys[j - 1];
         }
@@ -362,8 +360,10 @@ impl Node {
     }
 
     fn borrow_from_right(&mut self, i: usize) {
-        let child = self.children[i].as_mut().unwrap();
-        let right = self.children[i + 1].as_mut().unwrap();
+        let (child, right) = self.children.split_at_mut(i);
+        let child = child[i - 1].as_mut().unwrap();
+        let right = right[0].as_mut().unwrap();
+        
         child.keys[child.n] = self.keys[i];
         self.keys[i] = right.keys[0];
         for j in 0..right.n - 1 {
@@ -380,8 +380,10 @@ impl Node {
     }
 
     fn merge(&mut self, i: usize) {
-        let child = self.children[i].as_mut().unwrap();
-        let right = self.children[i + 1].take().as_mut().unwrap();
+        let (child, right) = self.children.split_at_mut(i);
+        let child = child[i - 1].as_mut().unwrap();
+        let right = right[0].as_mut().unwrap();
+
         child.keys[(MAX_CHILDREN - 1) / 2] = self.keys[i];
         for j in 0..right.n {
             child.keys[(MAX_CHILDREN - 1) / 2 + 1 + j] = right.keys[j];
@@ -400,6 +402,10 @@ impl Node {
         self.n -= 1;
     }
 
+    fn delete_internal_node(&mut self, i: usize) {
+        
+    }
+
     pub fn delete(&mut self, key: usize) {
         let i = self.find_pos(key);
         // if the key is found in the current node
@@ -410,14 +416,15 @@ impl Node {
                 }
                 self.n -= 1;
             } else {
-                self.delete_internal(i);
+                self.delete_internal_node(i);
             }
         } else {
             // if the key is not found in the current node
-            if let Some(child) = self.children[i].as_mut() {
+            if let Some(child) = self.children[i].as_ref() {
                 if child.n < 1 + (MAX_CHILDREN - 1) / 2 {
                     self.fill_child(i);
                 }
+                let child = self.children[i].as_mut().unwrap();
                 child.delete(key);
             }
         }
@@ -695,7 +702,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_internal() {
+    fn test_delete_from_internal() {
         let mut root = Node::new_boxed();
         let input = [5, 8, 11, 16, 21, 1, 2, 6, 7, 9, 10, 12, 13, 17, 18, 22, 23, 19];
         for i in input {
