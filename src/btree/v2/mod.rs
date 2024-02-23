@@ -384,26 +384,63 @@ impl Node {
         let child = child[i - 1].as_mut().unwrap();
         let right = right[0].as_mut().unwrap();
 
-        child.keys[(MAX_CHILDREN - 1) / 2] = self.keys[i];
         for j in 0..right.n {
-            child.keys[(MAX_CHILDREN - 1) / 2 + 1 + j] = right.keys[j];
+            right.keys[child.n + 1 + j] = right.keys[j];
         }
+        right.keys[child.n] = self.keys[i-1];
+        for j in 0..child.n {
+            right.keys[j] = child.keys[j];
+        }
+        right.n += child.n + 1;
         if !right.is_leaf {
-            for j in 0..right.n + 1 {
-                child.children[(MAX_CHILDREN - 1) / 2 + 1 + j] = right.children[j].take();
+            for j in 0..=child.n {
+                right.children[child.n + 1 + j] = right.children[j].take();
             }
         }
-        for j in i..self.n - 1 {
-            self.keys[j] = self.keys[j + 1];
+        if !child.is_leaf {
+            for j in 0..=child.n {
+                right.children[j] = child.children[j].take();
+            }
         }
-        for j in i + 1..self.n {
-            self.children[j] = self.children[j + 1].take();
+        for j in i..self.n {
+            self.keys[j - 1] = self.keys[j];
+        }
+        for j in i..=self.n {
+            self.children[j - 1] = self.children[j].take();
         }
         self.n -= 1;
     }
 
+    fn predecessor(&self, i: usize) -> usize {
+        let mut cur = self.children[i].as_ref().unwrap();
+        while !cur.is_leaf {
+            cur = cur.children[cur.n].as_ref().unwrap();
+        }
+        cur.keys[cur.n - 1]
+    }
+
+    fn successor(&self, i: usize) -> usize {
+        let mut cur = self.children[i + 1].as_ref().unwrap();
+        while !cur.is_leaf {
+            cur = cur.children[0].as_ref().unwrap();
+        }
+        cur.keys[0]
+    }
+
     fn delete_internal_node(&mut self, i: usize) {
-        
+        let key = self.keys[i];
+        if self.children[i].as_ref().unwrap().n > (MAX_CHILDREN - 1) / 2 {
+            let pred = self.predecessor(i);
+            self.keys[i] = pred;
+            self.children[i].as_mut().unwrap().delete(pred);
+        } else if self.children[i + 1].as_ref().unwrap().n > (MAX_CHILDREN - 1) / 2 {
+            let succ = self.successor(i);
+            self.keys[i] = succ;
+            self.children[i + 1].as_mut().unwrap().delete(succ);
+        } else {
+            self.merge(i);
+            self.children[i].as_mut().unwrap().delete(key);
+        }
     }
 
     pub fn delete(&mut self, key: usize) {
@@ -411,7 +448,7 @@ impl Node {
         // if the key is found in the current node
         if i < self.n && key == self.keys[i] {
             if self.is_leaf {
-                for j in i..self.n {
+                for j in i..self.n - 1 {
                     self.keys[j] = self.keys[j + 1];
                 }
                 self.n -= 1;
@@ -421,11 +458,16 @@ impl Node {
         } else {
             // if the key is not found in the current node
             if let Some(child) = self.children[i].as_ref() {
+                let oldn = self.n;
                 if child.n < 1 + (MAX_CHILDREN - 1) / 2 {
                     self.fill_child(i);
                 }
-                let child = self.children[i].as_mut().unwrap();
-                child.delete(key);
+                let merged = oldn != self.n;
+                if i > 0 && merged {
+                    self.children[i - 1].as_mut().unwrap().delete(key);
+                } else {
+                    self.children[i].as_mut().unwrap().delete(key);
+                }
             }
         }
     }
