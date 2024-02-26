@@ -432,7 +432,6 @@ impl Node {
         if self.children[i].as_ref().unwrap().n > (MAX_CHILDREN - 1) / 2 {
             if self.n >= MAX_CHILDREN {
                 self.split_node();
-                println!("+++ split_node: {}", self);
                 if i > MAX_CHILDREN / 2 {
                     let i = i - MAX_CHILDREN / 2 - 1;
                     self.children[1].as_mut().unwrap().delete_internal_node(i);
@@ -447,7 +446,6 @@ impl Node {
         } else if self.children[i + 1].as_ref().unwrap().n > (MAX_CHILDREN - 1) / 2 {
             if self.n >= MAX_CHILDREN {
                 self.split_node();
-                println!("+++ split_node: {}", self);
                 if i > MAX_CHILDREN / 2 {
                     let i = i - MAX_CHILDREN / 2 - 1;
                     self.children[1].as_mut().unwrap().delete_internal_node(i);
@@ -460,11 +458,7 @@ impl Node {
                 self.children[i + 1].as_mut().unwrap().delete(succ);
             }
         } else {
-            if i > 0 {
-                self.merge(i);
-            } else {
-                self.merge(i + 1);
-            }
+            self.merge(i + 1);
             if let Some(child) = self.children[i].as_mut() {
                 child.delete(key);
             }
@@ -492,7 +486,6 @@ impl Node {
                 let oldn = self.n;
                 if child.n < 1 + (MAX_CHILDREN - 1) / 2 {
                     self.fill_child(i);
-                    println!("+++ fill_child: {}", self);
                 }
                 let merged = oldn != self.n;
                 if i > 0 && merged {
@@ -862,25 +855,14 @@ mod tests {
 }
 "#;
         assert_eq!(ans, exp.trim());
-r#"
- [1, 2, 6],
-7,
- [9, 10, 11, 12, 13],
-17,
- [18, 19],
-21,
- [22, 23],
-"#;
 
         root.delete(11);
         let ans = format!("{}", root);
         let exp = r#"
 {
- [1, 2],
-6,
- [7, 9],
-10,
- [12, 13],
+ [1, 2, 6],
+7,
+ [9, 10, 12, 13],
 17,
  [18, 19],
 21,
@@ -893,9 +875,9 @@ r#"
         let ans = format!("{}", root);
         let exp = r#"
 {
- [1, 2, 7, 9],
-10,
- [12, 13],
+ [1, 2],
+7,
+ [9, 10, 12, 13],
 17,
  [18, 19],
 21,
@@ -908,9 +890,9 @@ r#"
         let ans = format!("{}", root);
         let exp = r#"
 {
- [1, 2, 7],
-9,
- [10, 12],
+ [1, 2],
+7,
+ [9, 10, 12],
 13,
  [18, 19],
 21,
@@ -923,11 +905,11 @@ r#"
         let ans = format!("{}", root);
         let exp = r#"
 {
- [1, 2, 7],
-9,
- [10, 12, 13, 18],
-19,
- [22, 23],
+ [1, 2],
+7,
+ [9, 10, 12],
+13,
+ [18, 19, 22, 23],
 }
 "#;
         assert_eq!(ans, exp.trim());
@@ -938,9 +920,9 @@ r#"
 {
  [1, 2],
 7,
- [10, 12, 13, 18],
-19,
- [22, 23],
+ [10, 12],
+13,
+ [18, 19, 22, 23],
 }
 "#;
         assert_eq!(ans, exp.trim());
@@ -949,11 +931,9 @@ r#"
         let ans = format!("{}", root);
         let exp = r#"
 {
- [1, 2],
-10,
- [12, 13, 18],
-19,
- [22, 23],
+ [1, 2, 10, 12],
+13,
+ [18, 19, 22, 23],
 }
 "#;
         assert_eq!(ans, exp.trim());
@@ -962,11 +942,9 @@ r#"
         let ans = format!("{}", root);
         let exp = r#"
 {
- [1, 2],
-12,
- [13, 18],
-19,
- [22, 23],
+ [1, 2, 12],
+13,
+ [18, 19, 22, 23],
 }
 "#;
         assert_eq!(ans, exp.trim());
@@ -975,9 +953,9 @@ r#"
         let ans = format!("{}", root);
         let exp = r#"
 {
- [1, 2, 13, 18],
-19,
- [22, 23],
+ [1, 2],
+13,
+ [18, 19, 22, 23],
 }
 "#;
         assert_eq!(ans, exp.trim());

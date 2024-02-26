@@ -199,7 +199,7 @@ void BTreeNode::removeFromNonLeaf(int idx)
 
 	int k = keys[idx];
 
-	// If the child that precedes k (C[idx]) has atleast t keys,
+	// If the child that precedes k (C[idx]) has at least t keys,
 	// find the predecessor 'pred' of k in the subtree rooted at
 	// C[idx]. Replace k by pred. Recursively delete pred
 	// in C[idx]
